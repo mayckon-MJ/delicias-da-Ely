@@ -550,22 +550,38 @@
     </footer>
 
     <script>
-        const sheetURL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTFTtQ3feIaDWKjbS9DZ0WUY6RL79C-H3OhsBHaAedJ6a5xetTOzrn9Iv0m1l2JGwJMJHf5Rx_fVyum/pub?output=csv';
+          const sheetURL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTFTtQ3feIaDWKjbS9DZ0WUY6RL79C-H3OhsBHaAedJ6a5xetTOzrn9Iv0m1l2JGwJMJHf5Rx_fVyum/pub?output=csv';
         let configHorario = { aberto: "18:00", fechado: "23:59" };
 
         async function fetchSheetData() {
             try {
                 const response = await fetch(sheetURL);
                 const data = await response.text();
-                const rows = data.split('\n').map(row => row.split(','));
+                
+                // Divide as linhas da planilha de forma limpa
+                const lines = data.split(/\r?\n/);
 
-                rows.forEach((row, index) => {
-                    if (index === 0 && row[1]?.trim().toLowerCase() === "id") return;
+                lines.forEach((line, index) => {
+                    if (!line.trim()) return; 
 
-                    const id = row[1]?.trim(); 
-                    const img = row[2]?.trim(); 
-                    const precoReal = row[3]?.trim(); // Agora Coluna D é Valor Real
-                    const nome = row[4]?.trim(); // Agora Coluna E é Nome
+                    // CORREÇÃO CRUCIAL: Detecta se a planilha usa vírgula ou ponto-e-vírgula como separador
+                    let row = [];
+                    if (line.includes(';')) {
+                        row = line.split(';');
+                    } else {
+                        row = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || line.split(',');
+                    }
+                    
+                    // Limpa as aspas extras
+                    const cleanRow = row.map(cell => cell.replace(/^"|"$|'/g, '').trim());
+
+                    if (index === 0 && cleanRow[1]?.toLowerCase() === "id") return;
+
+                    // Mapeamento das colunas (B, C, D e E)
+                    const id = cleanRow[1]; 
+                    const img = cleanRow[2]; 
+                    const precoReal = cleanRow[3]; 
+                    const nome = cleanRow[4];      
 
                     if (!id) return;
 
@@ -580,8 +596,9 @@
                     // --- CRIAÇÃO DINÂMICA DE PRODUTOS ---
                     if (!element) {
                         const idNum = parseInt(id);
+                        if (isNaN(idNum)) return; 
                         
-                        // Regra Ofertas de Hoje (IDs como 2000+)
+                        // Regra Ofertas de Hoje (IDs como 1000+)
                         if (idNum >= 1000) {
                             const container = document.getElementById('container-ofertas');
                             const div = document.createElement('div');
@@ -590,7 +607,7 @@
                             div.innerHTML = `
                                 <img class="combo-img prod-img" src="" alt="Combo">
                                 <div class="combo-title prod-nome">...</div>
-                                <div class="frete-label">Frete Grátis</div>
+                                <div class="frete-label">Entrega Grátis</div>
                                 <div class="price-old prod-preco-velho" style="display:none;"></div>
                                 <div class="price-new prod-preco-novo">...</div>
                                 <div class="urgent">🔥 Apenas 1 unidade(s) com esse preço especial</div>
@@ -640,11 +657,7 @@
                     if (element) {
                         if (img && img.startsWith('http')) element.querySelector('.prod-img').src = img;
                         if (nome) element.querySelector('.prod-nome').innerText = nome;
-                        
-                        // Exibe o preço EXATAMENTE como está na Coluna D
-                        if (precoReal) {
-                            element.querySelector('.prod-preco-novo').innerText = precoReal;
-                        }
+                        if (precoReal) element.querySelector('.prod-preco-novo').innerText = precoReal;
                     }
                 });
                 checkStatus();
@@ -652,6 +665,12 @@
                 console.error("Erro ao carregar dados da planilha:", error);
             }
         }
+
+        // CORREÇÃO PRINCIPAL: Executa a busca dos dados assim que a página carrega
+        window.addEventListener('DOMContentLoaded', () => {
+            fetchSheetData();
+            setInterval(countdown, 1000); // Ativa o cronômetro se houver
+        });
 
         function checkStatus() {
             const now = new Date();
@@ -680,12 +699,6 @@
         function countdown() {
             if(totalSec <= 0) return;
             totalSec--;
-            const h = Math.floor(totalSec / 3600);
-            const m = Math.floor((totalSec % 3600) / 60);
-            const s = totalSec % 60;
-            document.getElementById('h').innerText = String(h).padStart(2, '0');
-            document.getElementById('m').innerText = String(m).padStart(2, '0');
-            document.getElementById('s').innerText = String(s).padStart(2, '0');
         }
 
         let cart = [];
@@ -773,12 +786,11 @@
         }
         function fecharFinalizar() { document.getElementById('finalizarModal').style.display = 'none'; }
 
-                function pegarLocalizacao() {
+        function pegarLocalizacao() {
             const btn = document.getElementById('btnLoc');
             btn.innerText = "Buscando localização...";
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition((position) => {
-                    // CORRIGIDO: Link correto do Google Maps para o WhatsApp
                     userLocation = `https://www.google.com/maps?q=${position.coords.latitude},${position.coords.longitude}`;
                     btn.innerText = "Tudo Ok";
                     btn.style.background = "var(--verde)";
@@ -790,7 +802,6 @@
             }
         }
 
-                // 1. INSIRA SEUS LINKS FIXOS AQUI (Substitua os exemplos abaixo pelos seus links reais)
         const LINKS_PAGAMENTO_FIXOS = {
             "15.00": "https://mpago.la/exemplo15reais",
             "20.00": "https://mpago.la/exemplo20reais",
@@ -798,7 +809,6 @@
             "45.00": "https://mpago.la/exemplo45reais",
             "50.00": "https://mpago.la/exemplo50reais",
             "60.00": "https://mpago.la/exemplo60reais"
-            // Você pode adicionar quantos valores quiser seguindo o padrão acima "VALOR": "LINK",
         };
 
         function enviarPedidoWhatsApp() {
@@ -813,38 +823,28 @@
                 total += item.price * item.qty;
             });
 
-            // Transforma o total em formato de texto com duas casas decimais (ex: "30.00")
             let totalChave = total.toFixed(2); 
-            
-            // Busca o link na lista acima. Se não encontrar o valor exato, deixa uma mensagem padrão.
             let linkPagamento = LINKS_PAGAMENTO_FIXOS[totalChave];
             let blocoPagamento = "";
 
             if (linkPagamento) {
                 blocoPagamento = `*Link para Pagamento (Valor Exato):*%0A${linkPagamento}%0A%0A`;
             } else {
-                // Mensagem de segurança caso o cliente monte um carrinho com valor que você não cadastrou o link fixo
                 blocoPagamento = `*Pagamento:*%0A_Aguarde o atendente enviar o link para o valor de R$ ${totalChave.replace('.', ',')}_%0A%0A`;
             }
 
-            // CORRIGIDO: Uso estrito de %0A para quebras de linha e sem links quebrados
             let mensagem = `*Novo Pedido - Delícias da Ely*%0A%0A`;
             mensagem += `*Cliente:* ${nome}%0A`;
             mensagem += `*Localização:* ${userLocation}%0A%0A`;
             mensagem += `*Itens:*%0A${itensTexto}%0A`;
             mensagem += `*Total: R$ ${totalChave.replace('.', ',')}*%0A%0A`;
-            
-            // Adiciona o bloco do link de pagamento na mensagem
             mensagem += blocoPagamento;
-            
             mensagem += `*Métodos de Entrega:*%0A`;
             mensagem += `No momento, não fazemos entregas 😔%0A%0A`;
             mensagem += `😍🤩 Mas você pode vir buscar aqui em casa ou solicitar um uber/99 para vir fazer a retirada no local.`;
 
-            // CORRIGIDO: Link oficial do WhatsApp corrigido com https://
             window.open(`https://wa.me/5562995679219?text=${mensagem}`, '_blank');
         }
-
 
     </script>
 </body>
