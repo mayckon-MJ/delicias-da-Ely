@@ -773,11 +773,12 @@
         }
         function fecharFinalizar() { document.getElementById('finalizarModal').style.display = 'none'; }
 
-        function pegarLocalizacao() {
+                function pegarLocalizacao() {
             const btn = document.getElementById('btnLoc');
             btn.innerText = "Buscando localização...";
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition((position) => {
+                    // CORRIGIDO: Link correto do Google Maps para o WhatsApp
                     userLocation = `https://www.google.com/maps?q=${position.coords.latitude},${position.coords.longitude}`;
                     btn.innerText = "Tudo Ok";
                     btn.style.background = "var(--verde)";
@@ -789,29 +790,62 @@
             }
         }
 
+                // 1. INSIRA SEUS LINKS FIXOS AQUI (Substitua os exemplos abaixo pelos seus links reais)
+        const LINKS_PAGAMENTO_FIXOS = {
+            "15.00": "https://mpago.la/exemplo15reais",
+            "20.00": "https://mpago.la/exemplo20reais",
+            "30.00": "https://mpago.la/exemplo30reais",
+            "45.00": "https://mpago.la/exemplo45reais",
+            "50.00": "https://mpago.la/exemplo50reais",
+            "60.00": "https://mpago.la/exemplo60reais"
+            // Você pode adicionar quantos valores quiser seguindo o padrão acima "VALOR": "LINK",
+        };
+
         function enviarPedidoWhatsApp() {
             const nome = document.getElementById('nomeCliente').value;
             if(!nome) return alert("Por favor, digite seu nome.");
+            
+            let total = 0;
+            let itensTexto = "";
+            
+            cart.forEach(item => {
+                itensTexto += `- ${item.qty}x ${item.name} (R$ ${(item.price * item.qty).toFixed(2).replace('.', ',')})%0A`;
+                total += item.price * item.qty;
+            });
+
+            // Transforma o total em formato de texto com duas casas decimais (ex: "30.00")
+            let totalChave = total.toFixed(2); 
+            
+            // Busca o link na lista acima. Se não encontrar o valor exato, deixa uma mensagem padrão.
+            let linkPagamento = LINKS_PAGAMENTO_FIXOS[totalChave];
+            let blocoPagamento = "";
+
+            if (linkPagamento) {
+                blocoPagamento = `*Link para Pagamento (Valor Exato):*%0A${linkPagamento}%0A%0A`;
+            } else {
+                // Mensagem de segurança caso o cliente monte um carrinho com valor que você não cadastrou o link fixo
+                blocoPagamento = `*Pagamento:*%0A_Aguarde o atendente enviar o link para o valor de R$ ${totalChave.replace('.', ',')}_%0A%0A`;
+            }
+
+            // CORRIGIDO: Uso estrito de %0A para quebras de linha e sem links quebrados
             let mensagem = `*Novo Pedido - Delícias da Ely*%0A%0A`;
             mensagem += `*Cliente:* ${nome}%0A`;
             mensagem += `*Localização:* ${userLocation}%0A%0A`;
-            mensagem += `*Itens:*%0A`;
-            let total = 0;
-            cart.forEach(item => {
-                mensagem += `- ${item.qty}x ${item.name} (R$ ${(item.price * item.qty).toFixed(2).replace('.', ',')})%0A`;
-                total += item.price * item.qty;
-            });
-            mensagem += `%0A*Total: R$ ${total.toFixed(2).replace('.', ',')}*`;
-            mensagem += `*Metodos de Entrega:*\n
-            No momento, não fazemos entregas😔\n\n
-            😍🤩 Mas você pode vim buscar aqui em casa ou solicitar um uber/99 para vim fazer a retirada no local.`;
-            window.open(`://wa.me/5562995679219?text=${mensagem}`, '_blank');
+            mensagem += `*Itens:*%0A${itensTexto}%0A`;
+            mensagem += `*Total: R$ ${totalChave.replace('.', ',')}*%0A%0A`;
+            
+            // Adiciona o bloco do link de pagamento na mensagem
+            mensagem += blocoPagamento;
+            
+            mensagem += `*Métodos de Entrega:*%0A`;
+            mensagem += `No momento, não fazemos entregas 😔%0A%0A`;
+            mensagem += `😍🤩 Mas você pode vir buscar aqui em casa ou solicitar um uber/99 para vir fazer a retirada no local.`;
+
+            // CORRIGIDO: Link oficial do WhatsApp corrigido com https://
+            window.open(`https://wa.me/5562995679219?text=${mensagem}`, '_blank');
         }
 
-        fetchSheetData();
-        setInterval(fetchSheetData, 30000);
-        setInterval(countdown, 1000);
+
     </script>
 </body>
 </html>
-
